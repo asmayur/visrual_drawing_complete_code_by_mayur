@@ -122,6 +122,7 @@ Focused on building:
 
 📧 Email: pmprojectd@gmail.com
 💻 GitHub: https://github.com/asmayur/
+🔗 Linkedin: https://www.linkedin.com/in/mayur-wadhe-aa80ab174/
 
 Experienced in:
 
