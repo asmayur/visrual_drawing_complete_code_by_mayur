@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Virtual Air Paint</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: rgba(7, 10, 20, 0.55);
+      --panel: rgba(10, 15, 25, 0.55);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #eff6ff;
+      --sub: #dbeafe;
+      --accent: #8b5cf6;
+      --shadow: 0 18px 35px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      width: 100%; height: 100%; margin: 0; overflow: hidden;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: #04070f;
+      color: var(--text);
+    }
+
+    body.light {
+      color-scheme: light;
+      --bg: rgba(255, 255, 255, 0.55);
+      --panel: rgba(255, 255, 255, 0.65);
+      --border: rgba(15, 23, 42, 0.14);
+      --text: #0f172a;
+      --sub: #334155;
+      --accent: #8b5cf6;
+      --shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
+    }
+
+    #app {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #020617 0%, #111827 45%, #0b1120 100%);
+    }
+
+    video, canvas {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; display: block;
+    }
+
+    video {
+      filter: saturate(1.1) contrast(1.03) brightness(0.72);
+      transform: scaleX(-1);
+      background: #020617;
+    }
+
+    #drawCanvas {
+      z-index: 2;
+      touch-action: none;
+      mix-blend-mode: normal;
+    }
+
+    #glowCanvas {
+      z-index: 3; pointer-events: none;
+    }
+
+    .ui {
+      position: fixed; z-index: 5; inset: 0; pointer-events: none;
+    }
+
+    .toolbar {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; border-radius: 18px;
+      background: var(--panel); border: 1px solid var(--border);
+      box-shadow: var(--shadow); backdrop-filter: blur(16px) saturate(150%);
+      -webkit-backdrop-filter: blur(16px) saturate(150%);
+      pointer-events: auto;
+      flex-wrap: wrap; justify-content: center;
+      max-width: min(96vw, 1160px);
+    }
+
+    .chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; border-radius: 12px; padding: 7px 10px; border: 1px solid transparent;
+      color: var(--text); background: rgba(255,255,255,0.06); cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+      user-select: none;
+      min-height: 36px;
+      font-size: 13px;
+    }
+
+    .chip:hover, .chip.active { transform: translateY(-1px); border-color: rgba(139,92,246,0.45); background: rgba(139,92,246,0.16); }
+    .chip.small { padding: 6px 8px; min-width: 36px; }
+    .chip.color-swatch { width: 26px; height: 26px; padding: 0; border-radius: 999px; }
+    .chip.color-swatch.active { box-shadow: 0 0 0 2px rgba(255,255,255,0.95), 0 0 0 4px rgba(139,92,246,0.35); }
+
+    .label { font-size: 12px; color: var(--sub); white-space: nowrap; }
+
+    input[type="range"] {
+      width: 110px; accent-color: #8b5cf6;
+    }
+
+    .badge {
+      position: absolute; left: 16px; top: 14px;
+      display: flex; flex-direction: column; gap: 6px;
+      pointer-events: none;
+    }
+
+    .pill {
+      border-radius: 999px; padding: 8px 10px; font-size: 12px;
+      background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow);
+      backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+      color: var(--text);
+      max-width: 310px;
+    }
+
+    .pill strong { color: #a78bfa; }
+
+    .status {
+      position: absolute; right: 14px; top: 14px;
+      display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+      pointer-events: none;
+    }
+
+    .mini-card {
+      border-radius: 14px; padding: 8px 10px; font-size: 12px;
+      background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow);
+      backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+      color: var(--text);
+      min-width: 180px;
+      text-align: right;
+    }
+
+    .footer-note {
+      position: absolute; left: 50%; transform: translateX(-50%); bottom: 10px;
+      border-radius: 999px; padding: 8px 12px; font-size: 12px;
+      background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow);
+      backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+      color: var(--sub);
+      pointer-events: none;
+    }
+
+    @media (max-width: 900px) {
+      .toolbar { top: 10px; gap: 6px; padding: 8px; border-radius: 16px; }
+      .chip { font-size: 12px; padding: 6px 8px; min-height: 34px; }
+      .chip.color-swatch { width: 24px; height: 24px; }
+      .pill { max-width: 260px; }
+      .mini-card { min-width: 150px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="drawCanvas"></canvas>
+    <canvas id="glowCanvas"></canvas>
+
+    <div class="ui">
+      <div class="badge">
+        <div class="pill">Mode: <strong id="modeLabel">Ready</strong></div>
+        <div class="pill">Gesture Guide: index = draw • index+middle = select • 3 fingers = erase • fist = pause • thumbs up = save</div>
+      </div>
+
+      <div class="status">
+        <div class="mini-card" id="fpsCard">FPS: --</div>
+        <div class="mini-card" id="sizeCard">Brush: 4 px</div>
+      </div>
+
+      <div class="toolbar" id="toolbar">
+        <button class="chip small" id="themeToggle" title="Toggle dark/light mode">🌓</button>
+        <button class="chip small" id="fullscreenBtn" title="Fullscreen">⛶</button>
+        <span class="label">Color</span>
+        <button class="chip color-swatch active" data-color="#ff4d67" style="background:#ff4d67" title="Red"></button>
+        <button class="chip color-swatch" data-color="#3b82f6" style="background:#3b82f6" title="Blue"></button>
+        <button class="chip color-swatch" data-color="#22c55e" style="background:#22c55e" title="Green"></button>
+        <button class="chip color-swatch" data-color="#facc15" style="background:#facc15" title="Yellow"></button>
+        <button class="chip color-swatch" data-color="#a78bfa" style="background:#a78bfa" title="Purple"></button>
+        <button class="chip color-swatch" data-color="#ffffff" style="background:#ffffff" title="White"></button>
+        <button class="chip color-swatch" data-color="#111827" style="background:#111827" title="Black"></button>
+        <span class="label">Size</span>
+        <input id="sizeSlider" type="range" min="1" max="32" value="4" />
+        <button class="chip" id="cameraBtn" title="Start camera hand tracking">📹 Start Camera</button>
+        <button class="chip" id="eraserBtn" data-action="eraser">Eraser</button>
+        <button class="chip" id="undoBtn" data-action="undo">Undo</button>
+        <button class="chip" id="redoBtn" data-action="redo">Redo</button>
+        <button class="chip" id="clearBtn" data-action="clear">Clear</button>
+        <!-- <button class="chip" id="saveBtn" data-action="save">Save PNG</button> -->
+      </div>
+
+      <div class="footer-note">Virtual Air Paint • MediaPipe Hands • Canvas 2D • requestAnimationFrame</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script>
+    (() => {
+      const video = document.getElementById('video');
+      const drawCanvas = document.getElementById('drawCanvas');
+      const glowCanvas = document.getElementById('glowCanvas');
+      const modeLabel = document.getElementById('modeLabel');
+      const fpsCard = document.getElementById('fpsCard');
+      const sizeCard = document.getElementById('sizeCard');
+      const sizeSlider = document.getElementById('sizeSlider');
+      const themeToggle = document.getElementById('themeToggle');
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      const toolbar = document.getElementById('toolbar');
+
+      const ctx = drawCanvas.getContext('2d');
+      const glowCtx = glowCanvas.getContext('2d');
+
+      let camera = null;
+
+      const state = {
+        currentColor: '#ff4d67',
+        brushSize: 4,
+        mode: 'Ready',
+        drawing: false,
+        eraser: false,
+        lastTip: null,
+        lastGesture: 'idle',
+        lastGestureTime: 0,
+        lastActionTime: 0,
+        hoverButton: null,
+        hoverStart: 0,
+        saving: false,
+        hoverClickLock: 0,
+        undoStack: [],
+        redoStack: [],
+        fps: 0,
+        lastFrame: performance.now(),
+        theme: 'dark',
+        cameraReady: false,
+        pointer: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+        targetPointer: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+        velocity: { x: 0, y: 0 },
+        lastUpdate: 0,
+        lastDrawTime: 0,
+        selectionCooldown: 0,
+      };
+
+      function resizeCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        drawCanvas.width = Math.floor(window.innerWidth * dpr);
+        drawCanvas.height = Math.floor(window.innerHeight * dpr);
+        glowCanvas.width = drawCanvas.width;
+        glowCanvas.height = drawCanvas.height;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.imageSmoothingEnabled = true;
+        glowCtx.lineCap = 'round';
+        glowCtx.lineJoin = 'round';
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      function saveSnapshot() {
+        if (state.saving) return;
+        state.saving = true;
+        setTimeout(() => { state.saving = false; }, 1200);
+        const temp = document.createElement('canvas');
+        temp.width = drawCanvas.width;
+        temp.height = drawCanvas.height;
+        const tctx = temp.getContext('2d');
+        tctx.drawImage(drawCanvas, 0, 0);
+        const url = temp.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'virtual-air-paint.png';
+        link.click();
+      }
+
+      function pushUndo() {
+        const snapshot = drawCanvas.toDataURL();
+        state.undoStack.push(snapshot);
+        if (state.undoStack.length > 60) state.undoStack.shift();
+      }
+
+      function restoreFromSnapshot(dataUrl) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+          ctx.drawImage(img, 0, 0, window.innerWidth, window.innerHeight);
+        };
+        img.src = dataUrl;
+      }
+
+      function undo() {
+        if (!state.undoStack.length) return;
+        const current = drawCanvas.toDataURL();
+        state.redoStack.push(current);
+        const prev = state.undoStack.pop();
+        restoreFromSnapshot(prev);
+      }
+
+      function redo() {
+        if (!state.redoStack.length) return;
+        const current = drawCanvas.toDataURL();
+        state.undoStack.push(current);
+        const next = state.redoStack.pop();
+        restoreFromSnapshot(next);
+      }
+
+      function clearCanvas() {
+        pushUndo();
+        ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      }
+
+      function setMode(text) {
+        state.mode = text;
+        modeLabel.textContent = text;
+      }
+
+      function updateBrushInfo() {
+        sizeCard.textContent = `Brush: ${state.brushSize} px`;
+      }
+
+      function drawParticles() {
+        return;
+      }
+
+      function drawCursor(x, y) {
+        const safeX = Number.isFinite(x) ? x : window.innerWidth / 2;
+        const safeY = Number.isFinite(y) ? y : window.innerHeight / 2;
+        const clampedX = Math.min(window.innerWidth, Math.max(0, safeX));
+        const clampedY = Math.min(window.innerHeight, Math.max(0, safeY));
+        glowCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        const pulse = 0.7 + 0.3 * Math.sin(performance.now() * 0.008);
+        const gradient = glowCtx.createRadialGradient(clampedX, clampedY, 0, clampedX, clampedY, 26);
+        gradient.addColorStop(0, `rgba(59, 130, 246, ${0.35 + pulse * 0.15})`);
+        gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+        glowCtx.fillStyle = gradient;
+        glowCtx.beginPath();
+        glowCtx.arc(clampedX, clampedY, 26, 0, Math.PI * 2);
+        glowCtx.fill();
+        glowCtx.strokeStyle = 'rgba(224, 242, 254, 0.95)';
+        glowCtx.lineWidth = 1.1;
+        glowCtx.beginPath();
+        glowCtx.arc(clampedX, clampedY, 7.5, 0, Math.PI * 2);
+        glowCtx.stroke();
+      }
+
+      function lineInterpolate(x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const distance = Math.hypot(dx, dy);
+        const steps = Math.max(1, Math.floor(distance / 3));
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const xx = x1 + dx * t;
+          const yy = y1 + dy * t;
+          ctx.lineTo(xx, yy);
+        }
+      }
+
+      function doStroke(x, y, color, size, erase = false) {
+        if (!state.lastTip) {
+          state.lastTip = { x, y };
+          return;
+        }
+        const dx = x - state.lastTip.x;
+        const dy = y - state.lastTip.y;
+        if (Math.abs(dx) < 0.15 && Math.abs(dy) < 0.15) return;
+        ctx.save();
+        if (erase) {
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.strokeStyle = 'rgba(0,0,0,1)';
+          ctx.lineWidth = size * 1.8;
+        } else {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = color;
+          ctx.lineWidth = size;
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = color;
+        }
+        ctx.beginPath();
+        ctx.moveTo(state.lastTip.x, state.lastTip.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.restore();
+        state.lastTip = { x, y };
+      }
+
+      function isFingerRaised(landmarks, index) {
+        const tip = landmarks[index];
+        const pip = landmarks[index - 2];
+        const mcp = landmarks[index - 1];
+        const palm = landmarks[0];
+        return tip.y < pip.y - 0.03 && tip.y < mcp.y - 0.02 && Math.abs(tip.x - palm.x) > 0.03;
+      }
+
+      function isThumbUp(landmarks) {
+        const thumbTip = landmarks[4];
+        const thumbIp = landmarks[3];
+        const thumbMcp = landmarks[2];
+        return thumbTip.y < thumbIp.y - 0.02 && thumbTip.y < thumbMcp.y - 0.02 && Math.abs(thumbTip.x - thumbMcp.x) > 0.04;
+      }
+
+      function detectGesture(landmarks) {
+        const index = isFingerRaised(landmarks, 8);
+        const middle = isFingerRaised(landmarks, 12);
+        const ring = isFingerRaised(landmarks, 16);
+        const pinky = isFingerRaised(landmarks, 20);
+        const thumb = isThumbUp(landmarks);
+        const raised = [index, middle, ring, pinky].filter(Boolean).length;
+
+        if (thumb && !index && !middle && !ring && !pinky) return 'save';
+        if (raised === 0) return 'pause';
+        if (index && !middle && !ring && !pinky && !thumb) return 'draw';
+        if (index && middle && !ring && !pinky && !thumb) return 'select';
+        if (index && middle && ring && !pinky) return 'erase';
+        return 'idle';
+      }
+
+      function toScreen(x, y) {
+        const rect = video.getBoundingClientRect();
+        const width = Math.max(1, rect.width);
+        const height = Math.max(1, rect.height);
+        const nx = 1 - x;
+        return {
+          x: Math.min(width, Math.max(0, nx * width)),
+          y: Math.min(height, Math.max(0, y * height)),
+        };
+      }
+
+      function handleToolbarSelection(x, y) {
+        const buttons = [...toolbar.querySelectorAll('.chip')].filter(b => !b.classList.contains('color-swatch') || b.dataset.color);
+        const rect = toolbar.getBoundingClientRect();
+        const inToolbar = x > rect.left && x < rect.right && y > rect.top && y < rect.bottom;
+        if (!inToolbar) {
+          state.hoverButton = null;
+          return;
+        }
+
+        for (const button of buttons) {
+          const br = button.getBoundingClientRect();
+          if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
+            const now = performance.now();
+            if (state.hoverButton !== button) {
+              state.hoverButton = button;
+              state.hoverStart = now;
+              button.classList.add('active');
+              return;
+            }
+            if (now - state.hoverStart > 350 && now - state.hoverClickLock > 500) {
+              state.hoverClickLock = now;
+              button.click();
+            }
+            return;
+          }
+        }
+        state.hoverButton = null;
+      }
+
+      function applyButtonAction(action, target) {
+        if (action === 'camera') {
+          startCamera();
+          return;
+        }
+        if (action === 'eraser') {
+          state.eraser = true;
+          state.currentColor = '#ffffff';
+          setMode('Eraser');
+          return;
+        }
+        if (action === 'undo') { undo(); setMode('Undo'); return; }
+        if (action === 'redo') { redo(); setMode('Redo'); return; }
+        if (action === 'clear') { clearCanvas(); setMode('Clear'); return; }
+        // if (action === 'save') { saveSnapshot(); setMode('Saved'); return; }
+        if (target && target.dataset.color) {
+          state.currentColor = target.dataset.color;
+          state.eraser = false;
+          setMode('Draw');
+          document.querySelectorAll('.color-swatch').forEach(b => b.classList.toggle('active', b === target));
+          return;
+        }
+      }
+
+      document.querySelectorAll('.chip').forEach(button => {
+        button.addEventListener('click', (event) => {
+          const action = button.dataset.action;
+          if (button.id === 'cameraBtn') {
+            applyButtonAction('camera', button);
+            return;
+          }
+          applyButtonAction(action, button);
+          if (button.dataset.color) {
+            state.currentColor = button.dataset.color;
+            state.eraser = false;
+          }
+          if (button.id === 'themeToggle') {
+            document.body.classList.toggle('light');
+            state.theme = document.body.classList.contains('light') ? 'light' : 'dark';
+          }
+          if (button.id === 'fullscreenBtn') {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+            else document.exitFullscreen?.();
+          }
+        });
+      });
+
+      sizeSlider.addEventListener('input', (e) => {
+        state.brushSize = Number(e.target.value);
+        updateBrushInfo();
+      });
+
+      updateBrushInfo();
+
+      function updateFps(now) {
+        const delta = now - state.lastFrame;
+        state.lastFrame = now;
+        state.fps = Math.round(1000 / Math.max(delta, 1));
+        fpsCard.textContent = `FPS: ${state.fps}`;
+      }
+
+      const hands = new window.Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+      });
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 0,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+
+      hands.onResults((results) => {
+        if (!results.multiHandLandmarks || !results.multiHandLandmarks.length) return;
+
+        const hand = results.multiHandLandmarks[0];
+        const rawTip = { x: hand[8].x, y: hand[8].y };
+        const tip = toScreen(rawTip.x, rawTip.y);
+        const now = performance.now();
+        const dt = Math.max(0.001, (now - (state.lastUpdate || now)) / 1000);
+        state.lastUpdate = now;
+
+        const dx = tip.x - state.pointer.x;
+        const dy = tip.y - state.pointer.y;
+        const speed = Math.hypot(dx, dy) / Math.max(0.001, dt);
+
+        // Follow the fingertip directly for the draw point so the stroke stays in sync.
+        state.pointer.x = tip.x;
+        state.pointer.y = tip.y;
+
+        const drawPoint = { x: state.pointer.x, y: state.pointer.y };
+        const gesture = detectGesture(hand);
+
+        const gestureChanged = gesture !== state.lastGesture;
+        if (gestureChanged) {
+          state.lastGesture = gesture;
+          state.lastGestureTime = now;
+          state.lastActionTime = 0;
+          if (gesture === 'draw') setMode('Drawing');
+          else if (gesture === 'select') setMode('Selection');
+          else if (gesture === 'erase') setMode('Eraser');
+          else if (gesture === 'pause') setMode('Paused');
+        }
+
+        // Save gesture is disabled for now.
+
+        if (gesture === 'draw' && !state.eraser) {
+          state.drawing = true;
+          const brushSize = Math.max(1, state.brushSize + Math.min(10, speed * 0.02));
+          doStroke(drawPoint.x, drawPoint.y, state.currentColor, brushSize, false);
+        } else if (gesture === 'erase') {
+          state.drawing = true;
+          const eraseSize = Math.max(1, state.brushSize * 2 + Math.min(8, speed * 0.02));
+          doStroke(drawPoint.x, drawPoint.y, '#000000', eraseSize, true);
+        } else {
+          state.drawing = false;
+          if (gesture === 'select') {
+            handleToolbarSelection(drawPoint.x, drawPoint.y);
+          }
+          state.lastTip = null;
+        }
+
+      });
+
+      function animate(now) {
+        updateFps(now);
+        drawCursor(state.pointer.x, state.pointer.y);
+        requestAnimationFrame(animate);
+      }
+
+      async function startCamera() {
+        try {
+          if (!window.Camera) {
+            throw new Error('MediaPipe Camera utility is unavailable.');
+          }
+          state.cameraReady = false;
+          modeLabel.textContent = 'Starting camera…';
+          camera = new window.Camera(video, {
+            onFrame: async () => {
+              await hands.send({ image: video });
+            },
+            width: 640,
+            height: 480,
+          });
+          await camera.start();
+          state.cameraReady = true;
+          setMode('Ready');
+        } catch (error) {
+          console.error('Camera unavailable:', error);
+          state.cameraReady = false;
+          setMode('Ready');
+          modeLabel.textContent = 'Allow camera to use finger drawing';
+        }
+      }
+
+      startCamera();
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>
