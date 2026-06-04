@@ -1,31 +1,3 @@
-## Developer Information
-
-**Mayur Wadhe**
-AI Project Manager | AI Automation | Agentic AI | AI Product Strategy
-
-Focused on building:
-
-* AI-powered applications
-* Intelligent automation systems
-* Agentic AI workflows
-* AI product solutions
-* Real-time AI experiences
-
-### Connect
-
-📧 Email: pmprojectd@gmail.com
-💻 GitHub: https://github.com/asmayur/
-
-Experienced in:
-
-* AI Project Management
-* Agentic AI
-* AI Automation
-* Generative AI
-* AI Product Strategy
-* Workflow Automation
-* AI System Design
-
 # Virtual Air Paint
 
 A browser-based AI-powered hand-tracking drawing application that allows users to paint in the air using real-time gesture recognition with MediaPipe Hands and HTML5 Canvas.
@@ -133,5 +105,32 @@ A browser-based hand-tracking drawing app that lets you paint with your finger u
 - Allow camera access when the browser asks for permission.
 - The app is designed for a smooth hand-tracking experience on a desktop or laptop webcam.
 
+## Developer Information
+
+**Mayur Wadhe**
+AI Project Manager | AI Automation | Agentic AI | AI Product Strategy
+
+Focused on building:
+
+* AI-powered applications
+* Intelligent automation systems
+* Agentic AI workflows
+* AI product solutions
+* Real-time AI experiences
+
+### Connect
+
+📧 Email: pmprojectd@gmail.com
+💻 GitHub: https://github.com/asmayur/
+
+Experienced in:
+
+* AI Project Management
+* Agentic AI
+* AI Automation
+* Generative AI
+* AI Product Strategy
+* Workflow Automation
+* AI System Design
 
 © 2026 Mayur Wadhe | AI Project Manager
